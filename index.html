@@ -1,245 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neon Pro Stopwatch</title>
-    <style>
-        /* CSS STYLES */
-        :root {
-            --bg-color: #0a0a0c;
-            --container-bg: #151518;
-            --primary-neon: #00f2ff;
-            --secondary-neon: #7000ff;
-            --text-color: #ffffff;
-            --stop-color: #ff4d4d;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            font-family: 'Monaco', 'Consolas', monospace;
-            color: var(--text-color);
-        }
-
-        .stopwatch-card {
-            background: var(--container-bg);
-            padding: 2rem;
-            border-radius: 30px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5), 
-                        inset 0 0 15px rgba(255,255,255,0.05);
-            width: 350px;
-            text-align: center;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .timer-display {
-            font-size: 3.5rem;
-            margin: 1rem 0;
-            font-weight: bold;
-            text-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
-            display: flex;
-            justify-content: center;
-            align-items: baseline;
-        }
-
-        .ms-display {
-            font-size: 1.5rem;
-            color: var(--primary-neon);
-            width: 50px;
-            text-align: left;
-            margin-left: 5px;
-        }
-
-        .controls {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        button {
-            padding: 15px;
-            border: none;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .btn-start {
-            background: linear-gradient(135deg, var(--primary-neon), var(--secondary-neon));
-            color: white;
-            grid-column: span 2;
-        }
-
-        .btn-stop {
-            background: var(--stop-color);
-            color: white;
-            grid-column: span 2;
-            display: none; /* Toggled via JS */
-        }
-
-        .btn-lap, .btn-reset {
-            background: #2a2a2e;
-            color: white;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            filter: brightness(1.2);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        /* Laps section */
-        .laps-box {
-            margin-top: 25px;
-            height: 150px;
-            overflow-y: auto;
-            border-top: 1px solid #333;
-            padding-top: 15px;
-        }
-
-        .lap-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #222;
-            font-size: 0.9rem;
-            animation: slideIn 0.3s ease-out;
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-10px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-
-        .lap-number { color: #666; }
-        .lap-time { color: var(--primary-neon); }
-
-        /* Scrollbar styling */
-        .laps-box::-webkit-scrollbar { width: 4px; }
-        .laps-box::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-    </style>
-</head>
-<body>
-
-    <div class="stopwatch-card">
-        <div style="color: #666; font-size: 0.8rem; letter-spacing: 3px;">STOPWATCH</div>
-        
-        <div class="timer-display">
-            <span id="main-time">00:00:00</span>
-            <span id="ms-time" class="ms-display">.00</span>
-        </div>
-
-        <div class="controls">
-            <button id="startBtn" class="btn-start" onclick="startTimer()">Start</button>
-            <button id="stopBtn" class="btn-stop" onclick="stopTimer()">Stop</button>
-            <button id="lapBtn" class="btn-lap" onclick="recordLap()">Lap</button>
-            <button id="resetBtn" class="btn-reset" onclick="resetTimer()">Reset</button>
-        </div>
-
-        <div class="laps-box" id="lapsBox">
-            <!-- Laps will appear here -->
-        </div>
-    </div>
-
-    <script>
-        // JAVASCRIPT LOGIC
-        let startTime;
-        let elapsedTime = 0;
-        let timerInterval;
-
-        const mainDisplay = document.getElementById('main-time');
-        const msDisplay = document.getElementById('ms-time');
-        const startBtn = document.getElementById('startBtn');
-        const stopBtn = document.getElementById('stopBtn');
-        const lapsBox = document.getElementById('lapsBox');
-
-        function timeToString(time) {
-            let diffInHrs = time / 3600000;
-            let hh = Math.floor(diffInHrs);
-
-            let diffInMin = (diffInHrs - hh) * 60;
-            let mm = Math.floor(diffInMin);
-
-            let diffInSec = (diffInMin - mm) * 60;
-            let ss = Math.floor(diffInSec);
-
-            let diffInMs = (diffInSec - ss) * 100;
-            let ms = Math.floor(diffInMs);
-
-            let formattedMM = mm.toString().padStart(2, "0");
-            let formattedSS = ss.toString().padStart(2, "0");
-            let formattedHH = hh.toString().padStart(2, "0");
-            let formattedMS = ms.toString().padStart(2, "0");
-
-            return {
-                main: `${formattedHH}:${formattedMM}:${formattedSS}`,
-                ms: `.${formattedMS}`
-            };
-        }
-
-        function print(txt) {
-            mainDisplay.innerHTML = txt.main;
-            msDisplay.innerHTML = txt.ms;
-        }
-
-        function startTimer() {
-            startTime = Date.now() - elapsedTime;
-            timerInterval = setInterval(function printTime() {
-                elapsedTime = Date.now() - startTime;
-                print(timeToString(elapsedTime));
-            }, 10);
-            
-            showButton("STOP");
-        }
-
-        function stopTimer() {
-            clearInterval(timerInterval);
-            showButton("START");
-        }
-
-        function resetTimer() {
-            clearInterval(timerInterval);
-            print({ main: "00:00:00", ms: ".00" });
-            elapsedTime = 0;
-            lapsBox.innerHTML = "";
-            showButton("START");
-        }
-
-        function recordLap() {
-            if (elapsedTime > 0) {
-                const lapTime = timeToString(elapsedTime);
-                const lapItem = document.createElement("div");
-                lapItem.classList.add("lap-item");
-                lapItem.innerHTML = `
-                    <span class="lap-number">Lap ${lapsBox.children.length + 1}</span>
-                    <span class="lap-time">${lapTime.main}${lapTime.ms}</span>
-                `;
-                lapsBox.prepend(lapItem);
-            }
-        }
-
-        function showButton(buttonKey) {
-            if (buttonKey === "STOP") {
-                startBtn.style.display = "none";
-                stopBtn.style.display = "block";
-            } else {
-                startBtn.style.display = "block";
-                stopBtn.style.display = "none";
-            }
-        }
-    </script>
-</body>
-</html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Premium Stopwatch</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:Segoe UI,sans-serif}
+body{display:flex;justify-content:center;align-items:center;min-height:100vh;background:linear-gradient(-45deg,#020617,#0f172a,#312e81,#020617);background-size:400% 400%;animation:bg 12s infinite;color:#fff;overflow:hidden}
+@keyframes bg{0%{background-position:0 50%}50%{background-position:100% 50%}100%{background-position:0 50%}}
+body:before,body:after{content:"";position:fixed;width:350px;height:350px;border-radius:50%;filter:blur(90px);opacity:.25}
+body:before{background:#00e5ff;left:-80px;top:-80px}body:after{background:#8b5cf6;right:-80px;bottom:-80px}
+.card{width:min(430px,92vw);background:rgba(255,255,255,.08);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.15);border-radius:24px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+h1{text-align:center;margin-bottom:18px}
+#display{text-align:center;font-size:3.2rem;font-weight:700;letter-spacing:2px;text-shadow:0 0 15px #00e5ff}
+#display span{font-size:2rem;color:#7dd3fc}
+.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:24px 0}
+button{padding:13px;border:none;border-radius:12px;color:#fff;font-weight:700;cursor:pointer;transition:.25s}
+button:hover{transform:translateY(-2px)}
+#start{background:#06b6d4}#lap{background:#7c3aed}#reset{background:#f97316}
+#laps{max-height:220px;overflow:auto}
+.lap{display:flex;justify-content:space-between;background:rgba(255,255,255,.06);padding:10px;border-radius:10px;margin-top:8px}
+</style></head><body>
+<div class="card"><h1>⏱ Premium Stopwatch</h1>
+<div id="display">00:00:00.<span>00</span></div>
+<div class="controls"><button id="start">Start</button><button id="lap" disabled>Lap</button><button id="reset">Reset</button></div>
+<div id="laps"></div></div>
+<script>
+let start=0,elapsed=0,intv=null,running=false,laps=0;
+const d=display,s=startBtn=document.getElementById("start"),l=lap=document.getElementById("lap"),r=reset=document.getElementById("reset"),list=document.getElementById("laps");
+function fmt(t){let h=Math.floor(t/3600000),m=Math.floor(t%3600000/60000),sec=Math.floor(t%60000/1000),ms=Math.floor(t%1000/10);
+return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}.<span>${String(ms).padStart(2,"0")}</span>`;}
+function tick(){elapsed=Date.now()-start;d.innerHTML=fmt(elapsed);}
+s.onclick=()=>{if(!running){start=Date.now()-elapsed;intv=setInterval(tick,10);running=true;s.textContent="Pause";l.disabled=false;}else{clearInterval(intv);running=false;s.textContent="Start";}};
+r.onclick=()=>{clearInterval(intv);running=false;elapsed=0;laps=0;d.innerHTML='00:00:00.<span>00</span>';list.innerHTML='';s.textContent='Start';l.disabled=true;}
+l.onclick=()=>{if(!running)return;laps++;let e=document.createElement("div");e.className="lap";e.innerHTML=`<b>Lap ${laps}</b><span>${d.innerHTML}</span>`;list.prepend(e);}
+document.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();s.click()}if(e.key==="l"||e.key==="L")l.click();if(e.key==="r"||e.key==="R")r.click();});
+</script></body></html>
