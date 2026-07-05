@@ -3,34 +3,243 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stopwatch</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Neon Pro Stopwatch</title>
+    <style>
+        /* CSS STYLES */
+        :root {
+            --bg-color: #0a0a0c;
+            --container-bg: #151518;
+            --primary-neon: #00f2ff;
+            --secondary-neon: #7000ff;
+            --text-color: #ffffff;
+            --stop-color: #ff4d4d;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Monaco', 'Consolas', monospace;
+            color: var(--text-color);
+        }
+
+        .stopwatch-card {
+            background: var(--container-bg);
+            padding: 2rem;
+            border-radius: 30px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5), 
+                        inset 0 0 15px rgba(255,255,255,0.05);
+            width: 350px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .timer-display {
+            font-size: 3.5rem;
+            margin: 1rem 0;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: baseline;
+        }
+
+        .ms-display {
+            font-size: 1.5rem;
+            color: var(--primary-neon);
+            width: 50px;
+            text-align: left;
+            margin-left: 5px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, var(--primary-neon), var(--secondary-neon));
+            color: white;
+            grid-column: span 2;
+        }
+
+        .btn-stop {
+            background: var(--stop-color);
+            color: white;
+            grid-column: span 2;
+            display: none; /* Toggled via JS */
+        }
+
+        .btn-lap, .btn-reset {
+            background: #2a2a2e;
+            color: white;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* Laps section */
+        .laps-box {
+            margin-top: 25px;
+            height: 150px;
+            overflow-y: auto;
+            border-top: 1px solid #333;
+            padding-top: 15px;
+        }
+
+        .lap-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #222;
+            font-size: 0.9rem;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .lap-number { color: #666; }
+        .lap-time { color: var(--primary-neon); }
+
+        /* Scrollbar styling */
+        .laps-box::-webkit-scrollbar { width: 4px; }
+        .laps-box::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+    </style>
 </head>
 <body>
-    <div class="glass-container">
-        <div class="stopwatch-display">
-            <!-- Progress Ring -->
-            <svg class="progress-ring" width="280" height="280">
-                <circle class="progress-ring__circle-bg" stroke="#ffffff1a" stroke-width="8" fill="transparent" r="130" cx="140" cy="140"/>
-                <circle class="progress-ring__circle" stroke="#00d2ff" stroke-width="8" stroke-linecap="round" fill="transparent" r="130" cx="140" cy="140"/>
-            </svg>
-            
-            <div class="time-readout">
-                <span id="display">00:00:00</span>
-                <span id="millis">.00</span>
-            </div>
+
+    <div class="stopwatch-card">
+        <div style="color: #666; font-size: 0.8rem; letter-spacing: 3px;">STOPWATCH</div>
+        
+        <div class="timer-display">
+            <span id="main-time">00:00:00</span>
+            <span id="ms-time" class="ms-display">.00</span>
         </div>
 
         <div class="controls">
-            <button id="startStopBtn" class="btn start">Start</button>
-            <button id="lapBtn" class="btn lap" disabled>Lap</button>
-            <button id="resetBtn" class="btn reset">Reset</button>
+            <button id="startBtn" class="btn-start" onclick="startTimer()">Start</button>
+            <button id="stopBtn" class="btn-stop" onclick="stopTimer()">Stop</button>
+            <button id="lapBtn" class="btn-lap" onclick="recordLap()">Lap</button>
+            <button id="resetBtn" class="btn-reset" onclick="resetTimer()">Reset</button>
         </div>
 
-        <div class="laps-container">
-            <ul id="lapsList"></ul>
+        <div class="laps-box" id="lapsBox">
+            <!-- Laps will appear here -->
         </div>
     </div>
-    <script src="script.js"></script>
+
+    <script>
+        // JAVASCRIPT LOGIC
+        let startTime;
+        let elapsedTime = 0;
+        let timerInterval;
+
+        const mainDisplay = document.getElementById('main-time');
+        const msDisplay = document.getElementById('ms-time');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const lapsBox = document.getElementById('lapsBox');
+
+        function timeToString(time) {
+            let diffInHrs = time / 3600000;
+            let hh = Math.floor(diffInHrs);
+
+            let diffInMin = (diffInHrs - hh) * 60;
+            let mm = Math.floor(diffInMin);
+
+            let diffInSec = (diffInMin - mm) * 60;
+            let ss = Math.floor(diffInSec);
+
+            let diffInMs = (diffInSec - ss) * 100;
+            let ms = Math.floor(diffInMs);
+
+            let formattedMM = mm.toString().padStart(2, "0");
+            let formattedSS = ss.toString().padStart(2, "0");
+            let formattedHH = hh.toString().padStart(2, "0");
+            let formattedMS = ms.toString().padStart(2, "0");
+
+            return {
+                main: `${formattedHH}:${formattedMM}:${formattedSS}`,
+                ms: `.${formattedMS}`
+            };
+        }
+
+        function print(txt) {
+            mainDisplay.innerHTML = txt.main;
+            msDisplay.innerHTML = txt.ms;
+        }
+
+        function startTimer() {
+            startTime = Date.now() - elapsedTime;
+            timerInterval = setInterval(function printTime() {
+                elapsedTime = Date.now() - startTime;
+                print(timeToString(elapsedTime));
+            }, 10);
+            
+            showButton("STOP");
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            showButton("START");
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            print({ main: "00:00:00", ms: ".00" });
+            elapsedTime = 0;
+            lapsBox.innerHTML = "";
+            showButton("START");
+        }
+
+        function recordLap() {
+            if (elapsedTime > 0) {
+                const lapTime = timeToString(elapsedTime);
+                const lapItem = document.createElement("div");
+                lapItem.classList.add("lap-item");
+                lapItem.innerHTML = `
+                    <span class="lap-number">Lap ${lapsBox.children.length + 1}</span>
+                    <span class="lap-time">${lapTime.main}${lapTime.ms}</span>
+                `;
+                lapsBox.prepend(lapItem);
+            }
+        }
+
+        function showButton(buttonKey) {
+            if (buttonKey === "STOP") {
+                startBtn.style.display = "none";
+                stopBtn.style.display = "block";
+            } else {
+                startBtn.style.display = "block";
+                stopBtn.style.display = "none";
+            }
+        }
+    </script>
 </body>
 </html>
